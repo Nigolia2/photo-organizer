@@ -55,13 +55,16 @@ def find_duplicates(source_folder: str, mode: str = "hash", progress_callback=No
     return duplicate_groups
 
 
-def archive_duplicates(duplicate_groups, archive_folder: str, log_callback=None):
+def archive_duplicates(duplicate_groups, archive_folder: str,
+                       progress_callback=None, log_callback=None):
     """
     Pour chaque groupe, garde le premier fichier (ordre alphabétique du chemin)
     et déplace les autres vers archive_folder (en conservant le nom, avec suffixe si collision).
     """
     os.makedirs(archive_folder, exist_ok=True)
     moved = 0
+    total = sum(len(g) - 1 for g in duplicate_groups)
+    done = 0
 
     for group in duplicate_groups:
         kept = group[0]
@@ -86,6 +89,10 @@ def archive_duplicates(duplicate_groups, archive_folder: str, log_callback=None)
             except Exception as e:
                 if log_callback:
                     log_callback(f"  -> ERREUR sur {dup} : {e}")
+
+            done += 1
+            if progress_callback:
+                progress_callback(done, max(total, 1))
 
     if log_callback:
         log_callback(f"Terminé : {moved} doublon(s) archivé(s) dans {archive_folder}")

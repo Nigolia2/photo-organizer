@@ -9,7 +9,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
 
-from core.theme import apply_mocha_theme, MOCHA
+from core.theme import apply_mocha_theme, MOCHA, MONO_FONT
 from core.sorter import sort_by_date
 from core.duplicates import find_duplicates, archive_duplicates
 
@@ -54,15 +54,15 @@ class PhotoOrganizerApp:
         ttk.Checkbutton(tab, text="Déplacer les fichiers (sinon : copier)",
                          variable=self.sort_move_var).grid(row=2, column=0, columnspan=3, sticky="w", pady=(8, 12))
 
-        ttk.Button(tab, text="Lancer le tri", command=self._run_sort).grid(
-            row=3, column=0, columnspan=3, sticky="ew", pady=(0, 12))
+        self.sort_btn = ttk.Button(tab, text="Lancer le tri", command=self._run_sort)
+        self.sort_btn.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 12))
 
         self.sort_progress = ttk.Progressbar(tab, mode="determinate")
         self.sort_progress.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8))
 
         self.sort_log = scrolledtext.ScrolledText(
             tab, height=16, bg=MOCHA["mantle"], fg=MOCHA["text"],
-            insertbackground=MOCHA["text"], borderwidth=0, font=("Consolas", 9))
+            insertbackground=MOCHA["text"], borderwidth=0, font=MONO_FONT)
         self.sort_log.grid(row=5, column=0, columnspan=3, sticky="nsew")
 
         tab.grid_columnconfigure(1, weight=1)
@@ -77,21 +77,30 @@ class PhotoOrganizerApp:
         if not dest:
             messagebox.showerror("Erreur", "Choisis un dossier de destination.")
             return
+        if os.path.abspath(source) == os.path.abspath(dest):
+            messagebox.showerror("Erreur", "Le dossier source et la destination ne peuvent pas être identiques.")
+            return
 
         self.sort_log.delete("1.0", tk.END)
         self.sort_progress["value"] = 0
+        self.sort_btn.config(state="disabled")
 
-        def worker():
-            def on_progress(current, total):
+        def on_progress(current, total):
+            def _update():
                 self.sort_progress["maximum"] = max(total, 1)
                 self.sort_progress["value"] = current
+            self.root.after(0, _update)
 
-            def on_log(message):
+        def on_log(message):
+            def _update():
                 self.sort_log.insert(tk.END, message + "\n")
                 self.sort_log.see(tk.END)
+            self.root.after(0, _update)
 
+        def worker():
             sort_by_date(source, dest, move_files=self.sort_move_var.get(),
                          progress_callback=on_progress, log_callback=on_log)
+            self.root.after(0, lambda: self.sort_btn.config(state="normal"))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -116,8 +125,9 @@ class PhotoOrganizerApp:
 
         btn_frame = ttk.Frame(tab)
         btn_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(8, 12))
-        ttk.Button(btn_frame, text="1. Analyser", command=self._run_scan_duplicates).pack(
-            side="left", expand=True, fill="x", padx=(0, 6))
+        self.scan_btn = ttk.Button(btn_frame, text="1. Analyser",
+                                    command=self._run_scan_duplicates)
+        self.scan_btn.pack(side="left", expand=True, fill="x", padx=(0, 6))
         self.archive_btn = ttk.Button(btn_frame, text="2. Archiver les doublons",
                                        command=self._run_archive_duplicates, state="disabled")
         self.archive_btn.pack(side="left", expand=True, fill="x", padx=(6, 0))
@@ -127,7 +137,7 @@ class PhotoOrganizerApp:
 
         self.dup_log = scrolledtext.ScrolledText(
             tab, height=14, bg=MOCHA["mantle"], fg=MOCHA["text"],
-            insertbackground=MOCHA["text"], borderwidth=0, font=("Consolas", 9))
+            insertbackground=MOCHA["text"], borderwidth=0, font=MONO_FONT)
         self.dup_log.grid(row=5, column=0, columnspan=3, sticky="nsew")
 
         tab.grid_columnconfigure(1, weight=1)
@@ -144,21 +154,30 @@ class PhotoOrganizerApp:
         self.dup_log.delete("1.0", tk.END)
         self.dup_progress["value"] = 0
         self.archive_btn.config(state="disabled")
+        self.scan_btn.config(state="disabled")
 
-        def worker():
-            def on_progress(current, total):
+        def on_progress(current, total):
+            def _update():
                 self.dup_progress["maximum"] = max(total, 1)
                 self.dup_progress["value"] = current
+            self.root.after(0, _update)
 
-            def on_log(message):
+        def on_log(message):
+            def _update():
                 self.dup_log.insert(tk.END, message + "\n")
                 self.dup_log.see(tk.END)
+            self.root.after(0, _update)
 
+        def worker():
             groups = find_duplicates(source, mode=self.dup_mode_var.get(),
                                       progress_callback=on_progress, log_callback=on_log)
             self._duplicate_groups = groups
-            if groups:
-                self.root.after(0, lambda: self.archive_btn.config(state="normal"))
+
+            def _restore():
+                self.scan_btn.config(state="normal")
+                if groups:
+                    self.archive_btn.config(state="normal")
+            self.root.after(0, _restore)
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -175,14 +194,26 @@ class PhotoOrganizerApp:
         if not messagebox.askyesno("Confirmer", f"Déplacer {nb} fichier(s) en double vers {archive} ?"):
             return
 
+        # Désactiver immédiatement pour éviter un double-clic
+        self.archive_btn.config(state="disabled")
+        self.dup_progress["value"] = 0
+
+        def on_progress(current, total):
+            def _update():
+                self.dup_progress["maximum"] = max(total, 1)
+                self.dup_progress["value"] = current
+            self.root.after(0, _update)
+
         def on_log(message):
-            self.dup_log.insert(tk.END, message + "\n")
-            self.dup_log.see(tk.END)
+            def _update():
+                self.dup_log.insert(tk.END, message + "\n")
+                self.dup_log.see(tk.END)
+            self.root.after(0, _update)
 
         def worker():
-            archive_duplicates(self._duplicate_groups, archive, log_callback=on_log)
+            archive_duplicates(self._duplicate_groups, archive,
+                               progress_callback=on_progress, log_callback=on_log)
             self._duplicate_groups = []
-            self.root.after(0, lambda: self.archive_btn.config(state="disabled"))
 
         threading.Thread(target=worker, daemon=True).start()
 

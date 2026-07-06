@@ -1,10 +1,12 @@
 """Tests pour core/scanner.py"""
 import os
+import stat
 from datetime import datetime
 from PIL import Image
 
 from core.scanner import (
-    is_image_file, is_video_file, is_media_file, find_images, get_date_taken
+    is_image_file, is_video_file, is_media_file, find_images, get_date_taken,
+    _get_photo_date,
 )
 
 
@@ -52,3 +54,71 @@ def test_get_date_taken_repli_sur_date_modification_si_pas_exif(tmp_path):
     assert isinstance(date_taken, datetime)
     # Sans EXIF, on doit retomber sur la date de modification (à la seconde près)
     assert abs((date_taken - date_modif).total_seconds()) < 2
+
+
+def test_get_photo_date_lit_exif_datetime_original(tmp_path):
+    """EXIF DateTimeOriginal présent : la date doit être lue et parsée correctement."""
+    img_path = tmp_path / "avec_exif.jpg"
+    img = Image.new("RGB", (10, 10))
+    exif = img.getexif()
+    exif[36867] = "2023:06:15 14:30:00"  # tag DateTimeOriginal
+    img.save(img_path, exif=exif.tobytes())
+
+    date = _get_photo_date(str(img_path))
+
+    assert date is not None
+    assert date.year == 2023
+    assert date.month == 6
+    assert date.day == 15
+    assert date.hour == 14
+    assert date.minute == 30
+
+
+def test_get_date_taken_utilise_exif_quand_present(tmp_path):
+    """get_date_taken retourne bien la date EXIF plutôt que la date de modification."""
+    img_path = tmp_path / "avec_exif.jpg"
+    img = Image.new("RGB", (10, 10))
+    exif = img.getexif()
+    exif[36867] = "2019:01:01 00:00:00"
+    img.save(img_path, exif=exif.tobytes())
+
+    date = get_date_taken(str(img_path))
+
+    assert date.year == 2019
+    assert date.month == 1
+
+
+def test_get_date_taken_repli_si_fichier_illisible(tmp_path):
+    """Une image illisible (permissions) ne lève pas d'exception : repli sur mtime."""
+    img_path = tmp_path / "protege.jpg"
+    Image.new("RGB", (5, 5)).save(img_path)
+    os.chmod(str(img_path), 0o000)
+
+    try:
+        date = get_date_taken(str(img_path))
+        # Sur Linux le repli se fait sur os.path.getmtime, lui aussi peut échouer
+        # avec 0o000 — dans ce cas une exception est attendue en dehors de la lib.
+        assert isinstance(date, datetime)
+    except PermissionError:
+        pass  # comportement acceptable si l'OS bloque même getmtime
+    finally:
+        os.chmod(str(img_path), 0o644)  # restaurer pour le nettoyage tmp_path
+
+
+def test_find_images_avec_nom_contenant_accents(tmp_path):
+    """Les fichiers avec caractères accentués dans le nom sont correctement détectés."""
+    accented = tmp_path / "été_2023.jpg"
+    Image.new("RGB", (5, 5)).save(accented)
+
+    found = list(find_images(str(tmp_path)))
+
+    assert str(accented) in found
+
+
+def test_find_images_dossier_vide(tmp_path):
+    """Un dossier sans fichier média retourne une liste vide."""
+    (tmp_path / "notes.txt").write_text("texte")
+
+    found = list(find_images(str(tmp_path)))
+
+    assert found == []

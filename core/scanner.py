@@ -96,6 +96,9 @@ def _get_video_date(filepath: str):
         if metadata and metadata.has("creation_date"):
             value = metadata.get("creation_date")
             if isinstance(value, datetime):
+                if value.tzinfo is not None:
+                    # hachoir renvoie l'heure UTC avec tzinfo ; on convertit en heure locale naive
+                    value = value.astimezone(tz=None).replace(tzinfo=None)
                 return value
     except Exception:
         pass

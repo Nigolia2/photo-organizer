@@ -37,29 +37,33 @@ def sort_by_date(source_folder: str, dest_folder: str, move_files: bool = False,
     total = len(files)
     processed = 0
     errors = 0
+    skipped = 0
 
     if log_callback:
-        log_callback(f"{total} photo(s) trouvée(s) dans {source_folder}")
+        log_callback(f"{total} fichier(s) média trouvé(s) dans {source_folder}")
 
     for filepath in files:
         try:
             date_taken = get_date_taken(filepath)
             year_str = str(date_taken.year)
             month_str = mois_fr[date_taken.month - 1] if month_names_fr else f"{date_taken.month:02d}"
-
             target_dir = os.path.join(dest_folder, year_str, month_str)
-            os.makedirs(target_dir, exist_ok=True)
-
             filename = os.path.basename(filepath)
-            dest_path = _unique_destination(os.path.join(target_dir, filename))
 
-            if move_files:
-                shutil.move(filepath, dest_path)
+            # Idempotence : ne pas re-traiter un fichier déjà dans le bon répertoire
+            if os.path.abspath(os.path.dirname(filepath)) == os.path.abspath(target_dir):
+                skipped += 1
+                if log_callback:
+                    log_callback(f"SKIP : {filename} (déjà trié dans {year_str}/{month_str})")
             else:
-                shutil.copy2(filepath, dest_path)
-
-            if log_callback:
-                log_callback(f"OK  : {filename} -> {year_str}/{month_str}")
+                os.makedirs(target_dir, exist_ok=True)
+                dest_path = _unique_destination(os.path.join(target_dir, filename))
+                if move_files:
+                    shutil.move(filepath, dest_path)
+                else:
+                    shutil.copy2(filepath, dest_path)
+                if log_callback:
+                    log_callback(f"OK  : {filename} -> {year_str}/{month_str}")
 
         except Exception as e:
             errors += 1
@@ -71,6 +75,10 @@ def sort_by_date(source_folder: str, dest_folder: str, move_files: bool = False,
             progress_callback(processed, total)
 
     if log_callback:
-        log_callback(f"Terminé : {processed - errors}/{total} photo(s) triée(s), {errors} erreur(s).")
+        sorted_count = processed - errors - skipped
+        log_callback(
+            f"Terminé : {sorted_count}/{total} trié(s), "
+            f"{skipped} déjà en place, {errors} erreur(s)."
+        )
 
     return processed - errors, errors

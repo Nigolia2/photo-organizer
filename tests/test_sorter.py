@@ -62,6 +62,47 @@ def test_sort_by_date_deplace_si_demande(tmp_path):
     assert len(moved_files) == 1
 
 
+def test_sort_by_date_dossier_source_vide(tmp_path):
+    """Un dossier source sans fichier média ne doit provoquer aucune erreur."""
+    source = tmp_path / "source"
+    dest = tmp_path / "dest"
+    source.mkdir()
+    (source / "readme.txt").write_text("pas une image")
+
+    n_ok, n_err = sort_by_date(str(source), str(dest))
+
+    assert n_ok == 0
+    assert n_err == 0
+
+
+def test_sort_by_date_idempotent_ne_duplique_pas(tmp_path):
+    """Un fichier déjà dans le bon répertoire ne doit pas être copié à nouveau."""
+    dest = tmp_path / "dest"
+
+    # Créer une photo avec EXIF 2019/01/01 directement dans le répertoire cible attendu
+    from PIL import Image as PilImage
+    target_dir = dest / "2019" / "01 - Janvier"
+    target_dir.mkdir(parents=True)
+    photo = target_dir / "deja_triee.jpg"
+    img = PilImage.new("RGB", (5, 5))
+    exif = img.getexif()
+    exif[36867] = "2019:01:01 12:00:00"
+    img.save(photo, exif=exif.tobytes())
+
+    # Trier le dossier dest sur lui-même (source == dest)
+    # Doit être refusé ; on teste donc la source = sous-dossier contenant la photo
+    # et dest = dossier parent : comportement idempotent
+    log_messages = []
+    n_ok, n_err = sort_by_date(str(dest), str(dest), move_files=False,
+                                log_callback=log_messages.append)
+
+    # Le fichier doit être signalé comme déjà trié, pas copié
+    assert any("SKIP" in m for m in log_messages)
+    # Un seul fichier doit exister (pas de doublon créé)
+    all_photos = list(dest.rglob("deja_triee*"))
+    assert len(all_photos) == 1
+
+
 def test_sort_by_date_gere_les_collisions_de_noms(tmp_path):
     source = tmp_path / "source"
     dest = tmp_path / "dest"

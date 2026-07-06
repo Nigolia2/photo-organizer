@@ -1,7 +1,18 @@
 """
 theme.py — Applique un thème sombre "Catppuccin Mocha" aux widgets ttk.
 """
+import sys
 from tkinter import ttk
+
+if sys.platform == "win32":
+    _SANS = "Segoe UI"
+    MONO_FONT = ("Consolas", 9)
+elif sys.platform == "darwin":
+    _SANS = "Helvetica Neue"
+    MONO_FONT = ("Menlo", 10)
+else:
+    _SANS = "DejaVu Sans"
+    MONO_FONT = ("DejaVu Sans Mono", 9)
 
 MOCHA = {
     "base": "#1e1e2e",
@@ -32,16 +43,16 @@ def apply_mocha_theme(root):
 
     style.configure(".", background=MOCHA["base"], foreground=MOCHA["text"],
                      fieldbackground=MOCHA["surface0"], bordercolor=MOCHA["surface1"],
-                     font=("Segoe UI", 10))
+                     font=(_SANS, 10))
 
     style.configure("TFrame", background=MOCHA["base"])
     style.configure("TLabel", background=MOCHA["base"], foreground=MOCHA["text"])
     style.configure("Title.TLabel", background=MOCHA["base"], foreground=MOCHA["mauve"],
-                     font=("Segoe UI", 14, "bold"))
+                     font=(_SANS, 14, "bold"))
     style.configure("Subtext.TLabel", background=MOCHA["base"], foreground=MOCHA["subtext"])
 
     style.configure("TButton", background=MOCHA["mauve"], foreground=MOCHA["crust"],
-                     borderwidth=0, focusthickness=0, padding=8, font=("Segoe UI", 10, "bold"))
+                     borderwidth=0, focusthickness=0, padding=8, font=(_SANS, 10, "bold"))
     style.map("TButton",
               background=[("active", MOCHA["lavender"]), ("disabled", MOCHA["surface2"])],
               foreground=[("disabled", MOCHA["overlay"])])
@@ -55,7 +66,7 @@ def apply_mocha_theme(root):
 
     style.configure("TNotebook", background=MOCHA["base"], borderwidth=0)
     style.configure("TNotebook.Tab", background=MOCHA["mantle"], foreground=MOCHA["subtext"],
-                     padding=(16, 8), font=("Segoe UI", 10, "bold"))
+                     padding=(16, 8), font=(_SANS, 10, "bold"))
     style.map("TNotebook.Tab",
               background=[("selected", MOCHA["surface0"])],
               foreground=[("selected", MOCHA["mauve"])])
@@ -72,6 +83,6 @@ def apply_mocha_theme(root):
     style.configure("TLabelframe", background=MOCHA["base"], foreground=MOCHA["text"],
                      bordercolor=MOCHA["surface1"])
     style.configure("TLabelframe.Label", background=MOCHA["base"], foreground=MOCHA["lavender"],
-                     font=("Segoe UI", 10, "bold"))
+                     font=(_SANS, 10, "bold"))
 
     return style

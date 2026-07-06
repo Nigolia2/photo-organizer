@@ -59,28 +59,105 @@ Le processus se fait en 2 étapes :
 pytest tests/ -v
 ```
 
-## Créer un exécutable autonome (optionnel)
+## Packaging — distribuer sans Python
 
-Pour distribuer l'application sans installer Python sur la machine cible :
+> **Important — pas de cross-compilation** : PyInstaller génère un exécutable natif pour
+> l'OS sur lequel il s'exécute. Chaque artefact de distribution doit être construit sur la
+> machine cible correspondante. Les scripts ci-dessous sont prêts ; il suffit de les lancer.
 
-```bash
-pip install pyinstaller
-pyinstaller --onefile --windowed --name PhotoOrganizer main.py
+### Windows — PhotoOrganizer.exe
+
+Sur ta machine Windows (PowerShell, depuis la racine du projet) :
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -r requirements-build.txt
+.\build\build_windows.ps1
 ```
 
-L'exécutable sera généré dans le dossier `dist/`. À refaire séparément sur chaque OS cible
-(Windows, Linux, macOS) car PyInstaller ne fait pas de cross-compilation.
+Produit : `dist\PhotoOrganizer.exe` (autonome, ~50 Mo, aucune installation requise).
+
+**Icône** (optionnel) : placer `build\assets\icon.ico` avant de lancer le script.
+
+---
+
+### Linux — paquet .deb
+
+Sur ce serveur (venv déjà présent) :
+
+```bash
+source venv/bin/activate
+pip install -r requirements-build.txt
+bash build/build_linux.sh
+```
+
+Produit : `dist/photo-organizer_1.0.0_amd64.deb`
+
+Installation sur la machine cible :
+```bash
+sudo apt install ./dist/photo-organizer_1.0.0_amd64.deb
+```
+
+Le paquet installe l'application dans `/opt/photo-organizer/`, crée un lanceur dans
+`/usr/bin/photo-organizer`, et enregistre une entrée dans le menu applicatif (catégorie
+*Graphisme/Photographie*).
+
+**Dépendances système déclarées** : `libc6`, `libx11-6`, `libxext6`, `libxft2`, `tk`
+
+**Icône** (optionnel) : placer `build/assets/icon.png` (256×256 px min) avant de lancer.
+
+---
+
+### macOS — PhotoOrganizer.dmg (à venir)
+
+Sur une machine macOS (Python 3.9+ requis) :
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -r requirements-build.txt
+bash build/build_macos.sh
+```
+
+Produit : `dist/PhotoOrganizer.dmg` — l'utilisateur double-clique et glisse l'app dans
+Applications (glisser-déposer classique macOS).
+
+---
+
+### Résumé des artefacts par OS
+
+| OS      | Script                      | Artefact produit                        |
+|---------|-----------------------------|-----------------------------------------|
+| Windows | `build\build_windows.ps1`   | `dist\PhotoOrganizer.exe`               |
+| Linux   | `build/build_linux.sh`      | `dist/photo-organizer_1.0.0_amd64.deb` |
+| macOS   | `build/build_macos.sh`      | `dist/PhotoOrganizer.dmg`               |
 
 ## Structure du projet
 
 ```
 photo_organizer/
-├── main.py                 # Interface graphique (Tkinter)
+├── main.py                      # Interface graphique (Tkinter)
 ├── core/
-│   ├── scanner.py           # Détection des images + lecture EXIF
-│   ├── sorter.py             # Logique de tri par année/mois
-│   ├── duplicates.py         # Détection et archivage des doublons
-│   └── theme.py              # Thème Catppuccin Mocha
-├── requirements.txt
+│   ├── scanner.py                # Détection des médias + lecture EXIF / métadonnées vidéo
+│   ├── sorter.py                  # Logique de tri par année/mois (idempotent)
+│   ├── duplicates.py              # Détection et archivage des doublons
+│   └── theme.py                   # Thème Catppuccin Mocha + polices cross-platform
+├── tests/                        # Tests pytest (27 cas)
+│   ├── test_scanner.py
+│   ├── test_sorter.py
+│   └── test_duplicates.py
+├── build/                        # Scripts de packaging (un par OS)
+│   ├── build_linux.sh             # → .deb (Linux, à lancer sur Linux)
+│   ├── build_windows.ps1          # → .exe (Windows, à lancer sur Windows)
+│   ├── build_macos.sh             # → .dmg (macOS, à lancer sur macOS)
+│   └── assets/                    # Icônes à placer avant le build
+│       ├── icon.png               # 256×256 px — Linux & macOS
+│       ├── icon.ico               # 256×256 px — Windows
+│       └── README.md              # Instructions de création des icônes
+├── requirements.txt               # Dépendances runtime
+├── requirements-build.txt         # Dépendances de build (PyInstaller)
 └── README.md
 ```
