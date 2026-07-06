@@ -14,7 +14,7 @@ set -euo pipefail
 
 APP_NAME="PhotoOrganizer"
 BINARY_NAME="photo-organizer"          # nom en minuscules pour le paquet Debian
-VERSION="1.0.0"
+VERSION="${VERSION:-1.0.0}"            # surchargeable : VERSION=1.2.3 bash build/build_linux.sh
 ARCH=$(dpkg --print-architecture 2>/dev/null || echo "amd64")
 DEB_STEM="${BINARY_NAME}_${VERSION}_${ARCH}"
 

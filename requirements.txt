@@ -1,4 +1,5 @@
 Pillow>=10.0.0
 pillow-heif>=0.15.0
 hachoir>=3.3.0
+customtkinter>=5.2.0
 pytest>=8.0.0

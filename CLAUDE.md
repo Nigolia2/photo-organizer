@@ -18,16 +18,18 @@ Deux fonctionnalités cœur :
 - **Non-destructif par défaut** : privilégier la copie plutôt que le déplacement sauf action
   explicite de l'utilisateur. Toute opération d'archivage de doublons doit être réversible
   facilement (on ne supprime jamais, on déplace vers un dossier d'archive).
-- **Interface graphique uniquement** : pas de CLI prévue. Tkinter avec thème sombre
-  "Catppuccin Mocha" (couleurs définies dans `core/theme.py`, palette `MOCHA`). Garder la
-  cohérence visuelle si de nouveaux widgets sont ajoutés.
+- **Interface graphique uniquement** : pas de CLI prévue. CustomTkinter (style proche macOS)
+  avec la palette macOS Big Sur en mode clair (palette `APP_THEME` dans `core/theme.py`,
+  couleurs par widget dans `core/theme.json` chargé via `apply_app_theme()`). Garder la
+  cohérence visuelle si de nouveaux widgets sont ajoutés — réutiliser les composants de `ui/`
+  plutôt que d'introduire un nouveau style ponctuel.
 - **Photos ET vidéos** : les deux types de fichiers doivent être scannés, triés par date, et
   inclus dans la détection de doublons, dans le même flux (pas d'outil séparé pour les vidéos).
 
 ## Stack technique
 - Python 3.9+
-- Tkinter (ttk) pour l'UI — pas de framework GUI externe (pour rester léger et sans dépendance
-  de compilation lourde)
+- CustomTkinter (pure Python, basé sur Tkinter) pour l'UI — pas de framework GUI plus lourd
+  (pour rester léger et sans dépendance de compilation)
 - Pillow + pillow-heif pour la lecture EXIF et le support HEIC (photos iPhone)
 - hachoir pour l'extraction de métadonnées vidéo (date de création, pur Python, cross-platform,
   pas de binaire externe requis contrairement à pymediainfo/ffprobe)
@@ -37,12 +39,21 @@ Deux fonctionnalités cœur :
 ## Structure du projet
 ```
 photo_organizer/
-├── main.py              # Interface graphique, point d'entrée
+├── main.py              # Point d'entrée : assemble sidebar + vues CustomTkinter
 ├── core/
 │   ├── scanner.py        # Détection des fichiers média + extraction date (EXIF / vidéo)
 │   ├── sorter.py          # Logique de tri par année/mois
 │   ├── duplicates.py      # Détection (hash / nom+taille) + archivage des doublons
-│   └── theme.py           # Palette et styles ttk Catppuccin Mocha
+│   ├── theme.py           # Palette APP_THEME + apply_app_theme() (charge theme.json)
+│   └── theme.json          # Couleurs CustomTkinter par widget, dérivées de APP_THEME
+├── ui/                    # Composants d'interface CustomTkinter (logique métier exclue)
+│   ├── sidebar.py          # Navigation latérale (sections Trier par date / Doublons)
+│   ├── toolbar.py           # Barre d'actions principales d'une vue
+│   ├── result_list.py        # Liste défilante des résultats (une ligne par fichier)
+│   ├── notification.py        # Bandeau de notification intégré (pas de popup bloquante)
+│   ├── widgets.py               # Petits composants partagés (sélecteur de dossier, etc.)
+│   ├── sort_view.py               # Vue "Trier par date"
+│   └── duplicates_view.py          # Vue "Doublons"
 ├── tests/                # Tests pytest (test_scanner.py, test_sorter.py, test_duplicates.py)
 ├── requirements.txt
 └── README.md

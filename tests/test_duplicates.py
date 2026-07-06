@@ -1,7 +1,9 @@
 """Tests pour core/duplicates.py"""
+import os
+
 from PIL import Image
 
-from core.duplicates import find_duplicates, archive_duplicates, _hash_file
+from core.duplicates import find_duplicates, archive_duplicates, _hash_file, _cache_path
 
 
 def _make_fake_photo(path, color=(0, 0, 0)):
@@ -84,6 +86,66 @@ def test_find_duplicates_fichier_illisible_ne_bloque_pas_le_lot(tmp_path):
         assert any("ERREUR" in e for e in errors)
     finally:
         os.chmod(str(bad), 0o644)
+
+
+def test_find_duplicates_cache_evite_de_rehacher_fichier_inchange(tmp_path, monkeypatch):
+    """En mode aperçu rapide, un fichier inchangé ne doit pas être relu lors d'une 2e analyse."""
+    _make_fake_photo(tmp_path / "a.jpg", color=(10, 20, 30))
+    _make_fake_photo(tmp_path / "b.jpg", color=(10, 20, 30))
+
+    cache_file = _cache_path(str(tmp_path))
+    if os.path.exists(cache_file):
+        os.remove(cache_file)
+
+    calls = []
+    import core.duplicates as duplicates_module
+    original_hash_file = duplicates_module._hash_file
+
+    def counting_hash_file(filepath, *args, **kwargs):
+        calls.append(filepath)
+        return original_hash_file(filepath, *args, **kwargs)
+
+    monkeypatch.setattr(duplicates_module, "_hash_file", counting_hash_file)
+
+    try:
+        groups1 = find_duplicates(str(tmp_path), mode="hash", use_cache=True)
+        assert len(calls) == 2  # rien en cache : les 2 fichiers sont hachés
+
+        calls.clear()
+        groups2 = find_duplicates(str(tmp_path), mode="hash", use_cache=True)
+        assert len(calls) == 0  # tout est en cache : aucun fichier relu
+        assert groups2 == groups1
+    finally:
+        if os.path.exists(cache_file):
+            os.remove(cache_file)
+
+
+def test_find_duplicates_cache_recalcule_si_fichier_modifie(tmp_path):
+    """Un fichier modifié après la 1re analyse doit être re-haché (le cache ne doit pas mentir)."""
+    fichier = tmp_path / "a.jpg"
+    _make_fake_photo(fichier, color=(10, 20, 30))
+    _make_fake_photo(tmp_path / "b.jpg", color=(99, 88, 77))
+
+    cache_file = _cache_path(str(tmp_path))
+    if os.path.exists(cache_file):
+        os.remove(cache_file)
+
+    try:
+        groups1 = find_duplicates(str(tmp_path), mode="hash", use_cache=True)
+        assert groups1 == []  # aucun doublon au départ
+
+        # a.jpg devient un doublon de b.jpg ; on force un mtime différent pour ne pas
+        # dépendre de la résolution de l'horloge du système de fichiers.
+        _make_fake_photo(fichier, color=(99, 88, 77))
+        nouveau_mtime = os.path.getmtime(str(fichier)) + 5
+        os.utime(str(fichier), (nouveau_mtime, nouveau_mtime))
+
+        groups2 = find_duplicates(str(tmp_path), mode="hash", use_cache=True)
+        assert len(groups2) == 1
+        assert len(groups2[0]) == 2
+    finally:
+        if os.path.exists(cache_file):
+            os.remove(cache_file)
 
 
 def test_archive_duplicates_gere_collision_dans_archive(tmp_path):

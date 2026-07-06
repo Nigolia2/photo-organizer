@@ -1,88 +1,54 @@
 """
-theme.py — Applique un thème sombre "Catppuccin Mocha" aux widgets ttk.
+theme.py — Palette et configuration du thème CustomTkinter "macOS Big Sur (mode clair)".
+La palette de couleurs vit ici (APP_THEME) ; les couleurs par widget CustomTkinter
+sont définies dans theme.json et chargées via apply_app_theme().
 """
+import os
 import sys
-from tkinter import ttk
+
+import customtkinter as ctk
 
 if sys.platform == "win32":
-    _SANS = "Segoe UI"
-    MONO_FONT = ("Consolas", 9)
+    MONO_FONT = ("Consolas", 11)
 elif sys.platform == "darwin":
-    _SANS = "Helvetica Neue"
-    MONO_FONT = ("Menlo", 10)
+    MONO_FONT = ("Menlo", 12)
 else:
-    _SANS = "DejaVu Sans"
-    MONO_FONT = ("DejaVu Sans Mono", 9)
+    MONO_FONT = ("DejaVu Sans Mono", 11)
 
-MOCHA = {
-    "base": "#1e1e2e",
-    "mantle": "#181825",
-    "crust": "#11111b",
-    "text": "#cdd6f4",
-    "subtext": "#a6adc8",
-    "surface0": "#313244",
-    "surface1": "#45475a",
-    "surface2": "#585b70",
-    "overlay": "#6c7086",
-    "blue": "#89b4fa",
-    "lavender": "#b4befe",
-    "green": "#a6e3a1",
-    "yellow": "#f9e2af",
-    "peach": "#fab387",
-    "red": "#f38ba8",
-    "mauve": "#cba6f7",
+APP_THEME = {
+    "bg": "#FFFFFF",           # Fond principal (fenêtre)
+    "bg_secondary": "#F2F2F7",  # Fond secondaire (panneaux, listes)
+    "sidebar": "#F6F6F6",        # Fond sidebar (translucide clair)
+    "border": "#C6C6C8",          # Séparateurs / bordures
+    "text": "#000000",              # Texte principal
+    "subtext": "#6E6E73",             # Texte secondaire (équivalent #3C3C43 ~60% opacité)
+    "on_accent": "#FFFFFF",             # Texte/icône sur fond de couleur d'accent
+
+    "gray": "#8E8E93",
+    "gray2": "#AEAEB2",
+    "gray3": "#C7C7CC",
+    "gray4": "#D1D1D6",
+    "gray5": "#E5E5EA",
+    "gray6": "#F2F2F7",
+
+    "blue": "#007AFF",       # Accent principal
+    "green": "#34C759",       # Succès
+    "red": "#FF3B30",           # Erreur
+    "orange": "#FF9500",          # Avertissement
+    "purple": "#AF52DE",            # Accent secondaire
+    "indigo": "#5856D6",
+    "pink": "#FF2D55",
+    "yellow": "#FFCC00",
 }
 
+_THEME_JSON_PATH = os.path.join(os.path.dirname(__file__), "theme.json")
 
-def apply_mocha_theme(root):
-    """Configure les couleurs et styles ttk pour toute l'application."""
-    root.configure(bg=MOCHA["base"])
 
-    style = ttk.Style(root)
-    style.theme_use("clam")  # base modifiable, nécessaire pour personnaliser 'clam'
-
-    style.configure(".", background=MOCHA["base"], foreground=MOCHA["text"],
-                     fieldbackground=MOCHA["surface0"], bordercolor=MOCHA["surface1"],
-                     font=(_SANS, 10))
-
-    style.configure("TFrame", background=MOCHA["base"])
-    style.configure("TLabel", background=MOCHA["base"], foreground=MOCHA["text"])
-    style.configure("Title.TLabel", background=MOCHA["base"], foreground=MOCHA["mauve"],
-                     font=(_SANS, 14, "bold"))
-    style.configure("Subtext.TLabel", background=MOCHA["base"], foreground=MOCHA["subtext"])
-
-    style.configure("TButton", background=MOCHA["mauve"], foreground=MOCHA["crust"],
-                     borderwidth=0, focusthickness=0, padding=8, font=(_SANS, 10, "bold"))
-    style.map("TButton",
-              background=[("active", MOCHA["lavender"]), ("disabled", MOCHA["surface2"])],
-              foreground=[("disabled", MOCHA["overlay"])])
-
-    style.configure("Secondary.TButton", background=MOCHA["surface1"], foreground=MOCHA["text"],
-                     borderwidth=0, padding=8)
-    style.map("Secondary.TButton", background=[("active", MOCHA["surface2"])])
-
-    style.configure("TEntry", fieldbackground=MOCHA["surface0"], foreground=MOCHA["text"],
-                     insertcolor=MOCHA["text"], bordercolor=MOCHA["surface1"])
-
-    style.configure("TNotebook", background=MOCHA["base"], borderwidth=0)
-    style.configure("TNotebook.Tab", background=MOCHA["mantle"], foreground=MOCHA["subtext"],
-                     padding=(16, 8), font=(_SANS, 10, "bold"))
-    style.map("TNotebook.Tab",
-              background=[("selected", MOCHA["surface0"])],
-              foreground=[("selected", MOCHA["mauve"])])
-
-    style.configure("TProgressbar", background=MOCHA["green"], troughcolor=MOCHA["surface0"],
-                     borderwidth=0, thickness=14)
-
-    style.configure("TCheckbutton", background=MOCHA["base"], foreground=MOCHA["text"])
-    style.map("TCheckbutton", background=[("active", MOCHA["base"])])
-
-    style.configure("TRadiobutton", background=MOCHA["base"], foreground=MOCHA["text"])
-    style.map("TRadiobutton", background=[("active", MOCHA["base"])])
-
-    style.configure("TLabelframe", background=MOCHA["base"], foreground=MOCHA["text"],
-                     bordercolor=MOCHA["surface1"])
-    style.configure("TLabelframe.Label", background=MOCHA["base"], foreground=MOCHA["lavender"],
-                     font=(_SANS, 10, "bold"))
-
-    return style
+def apply_app_theme():
+    """
+    Configure CustomTkinter pour appliquer systématiquement le thème clair
+    macOS Big Sur (theme.json), quel que soit le thème système.
+    À appeler une seule fois, avant de créer la fenêtre principale (ctk.CTk()).
+    """
+    ctk.set_appearance_mode("light")
+    ctk.set_default_color_theme(_THEME_JSON_PATH)

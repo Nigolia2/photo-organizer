@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # build_macos.sh — Construit PhotoOrganizer.dmg sur macOS.
 # À exécuter sur une machine macOS (Intel ou Apple Silicon) avec Python 3.9+.
-# Aucun outil externe requis : PyInstaller + hdiutil (intégré macOS).
+# Prérequis : PyInstaller + create-dmg (brew install create-dmg).
 #
 # Usage :
 #   cd /chemin/vers/photo_organizer
 #   python3 -m venv venv
 #   source venv/bin/activate
 #   pip install -r requirements.txt
-#   pip install pyinstaller>=6.0
+#   pip install -r requirements-build.txt
+#   brew install create-dmg
 #   bash build/build_macos.sh
 
 set -euo pipefail
@@ -16,8 +17,6 @@ set -euo pipefail
 APP_NAME="PhotoOrganizer"
 DIST_DIR="dist"
 DMG_PATH="${DIST_DIR}/${APP_NAME}.dmg"
-STAGING_DIR="${DIST_DIR}/dmg_staging"
-ICON_PATH="build/assets/icon.png"
 
 echo "=== Build PyInstaller (.app bundle) ==="
 pyinstaller \
@@ -37,23 +36,26 @@ if [ ! -d "${APP_BUNDLE}" ]; then
 fi
 
 echo ""
-echo "=== Création du .dmg ==="
-rm -rf "${STAGING_DIR}"
-mkdir -p "${STAGING_DIR}"
-cp -r "${APP_BUNDLE}" "${STAGING_DIR}/"
-
-# Lien symbolique Applications pour faciliter l'installation par glisser-déposer
-ln -s /Applications "${STAGING_DIR}/Applications"
-
+echo "=== Création du .dmg (create-dmg) ==="
 rm -f "${DMG_PATH}"
-hdiutil create \
-    -volname "${APP_NAME}" \
-    -srcfolder "${STAGING_DIR}" \
-    -ov \
-    -format UDZO \
-    "${DMG_PATH}"
 
-rm -rf "${STAGING_DIR}"
+# create-dmg peut retourner un code de sortie non nul même en cas de succès (l'étape
+# de personnalisation Finder/AppleScript échoue silencieusement sur les runners CI
+# sans session graphique) — on vérifie donc le résultat par la présence du fichier
+# plutôt que par le code de sortie.
+create-dmg \
+    --volname "${APP_NAME}" \
+    --window-size 500 300 \
+    --icon-size 100 \
+    --icon "${APP_NAME}.app" 130 130 \
+    --app-drop-link 360 130 \
+    "${DMG_PATH}" \
+    "${APP_BUNDLE}" || true
+
+if [ ! -f "${DMG_PATH}" ]; then
+    echo "Erreur : ${DMG_PATH} introuvable après create-dmg."
+    exit 1
+fi
 
 echo ""
 echo "Image disque créée : ${DMG_PATH}"

@@ -2,7 +2,7 @@
 
 Gestionnaire de bibliothèque de photos numériques — tri automatique par date et
 détection/archivage des doublons. Fonctionne sur Windows, Linux et macOS.
-Interface graphique avec thème sombre Catppuccin Mocha.
+Interface graphique avec la palette macOS Big Sur (mode clair).
 
 ## Installation
 
@@ -110,7 +110,7 @@ Le paquet installe l'application dans `/opt/photo-organizer/`, crée un lanceur 
 
 ---
 
-### macOS — PhotoOrganizer.dmg (à venir)
+### macOS — PhotoOrganizer.dmg
 
 Sur une machine macOS (Python 3.9+ requis) :
 
@@ -119,6 +119,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 pip install -r requirements-build.txt
+brew install create-dmg
 bash build/build_macos.sh
 ```
 
@@ -135,28 +136,64 @@ Applications (glisser-déposer classique macOS).
 | Linux   | `build/build_linux.sh`      | `dist/photo-organizer_1.0.0_amd64.deb` |
 | macOS   | `build/build_macos.sh`      | `dist/PhotoOrganizer.dmg`               |
 
+---
+
+### Release automatique via GitHub Actions
+
+Un workflow (`.github/workflows/build.yml`) construit automatiquement les 3 artefacts
+(Windows, Linux, macOS) et les publie dans une GitHub Release à chaque tag de version poussé.
+
+**Déclencher une release :**
+```bash
+git tag v1.0.0
+git push --tags
+```
+
+Ça lance 3 jobs en parallèle (un par OS, réutilisant les scripts de `build/` ci-dessus), puis
+un job final qui crée la Release GitHub pour le tag et y attache automatiquement :
+- `PhotoOrganizer.exe` (Windows)
+- `photo-organizer.deb` (Linux)
+- `PhotoOrganizer.dmg` (macOS)
+
+> **Non vérifié en conditions réelles** : le workflow a été validé syntaxiquement (YAML +
+> relecture manuelle de la logique des jobs), mais n'a pas pu être exécuté dans cet
+> environnement — GitHub Actions ne peut être testé qu'une fois le fichier réellement poussé
+> sur GitHub. Vérifie le premier run après un push de tag avant de t'y fier pour une vraie
+> release.
+
 ## Structure du projet
 
 ```
 photo_organizer/
-├── main.py                      # Interface graphique (Tkinter)
+├── main.py                      # Point d'entrée : assemble sidebar + vues CustomTkinter
 ├── core/
 │   ├── scanner.py                # Détection des médias + lecture EXIF / métadonnées vidéo
 │   ├── sorter.py                  # Logique de tri par année/mois (idempotent)
-│   ├── duplicates.py              # Détection et archivage des doublons
-│   └── theme.py                   # Thème Catppuccin Mocha + polices cross-platform
-├── tests/                        # Tests pytest (27 cas)
+│   ├── duplicates.py              # Détection/archivage des doublons (hashing parallèle + cache)
+│   ├── theme.py                    # Palette macOS Big Sur (mode clair) + polices cross-platform
+│   └── theme.json                   # Couleurs CustomTkinter par widget, dérivées de theme.py
+├── ui/                           # Composants d'interface CustomTkinter (logique métier exclue)
+│   ├── sidebar.py                 # Navigation latérale (sections Trier par date / Doublons)
+│   ├── toolbar.py                  # Barre d'actions principales d'une vue
+│   ├── result_list.py               # Liste défilante des résultats (une ligne par fichier)
+│   ├── notification.py               # Bandeau de notification intégré (pas de popup bloquante)
+│   ├── widgets.py                      # Petits composants partagés (sélecteur de dossier, etc.)
+│   ├── sort_view.py                     # Vue "Trier par date"
+│   └── duplicates_view.py                # Vue "Doublons"
+├── tests/                        # Tests pytest (29 cas)
 │   ├── test_scanner.py
 │   ├── test_sorter.py
 │   └── test_duplicates.py
-├── build/                        # Scripts de packaging (un par OS)
+├── build/                        # Scripts de packaging (un par OS, réutilisés par la CI)
 │   ├── build_linux.sh             # → .deb (Linux, à lancer sur Linux)
 │   ├── build_windows.ps1          # → .exe (Windows, à lancer sur Windows)
-│   ├── build_macos.sh             # → .dmg (macOS, à lancer sur macOS)
+│   ├── build_macos.sh             # → .dmg (macOS, à lancer sur macOS, via create-dmg)
 │   └── assets/                    # Icônes à placer avant le build
 │       ├── icon.png               # 256×256 px — Linux & macOS
 │       ├── icon.ico               # 256×256 px — Windows
 │       └── README.md              # Instructions de création des icônes
+├── .github/workflows/
+│   └── build.yml                  # Build + GitHub Release automatique à chaque tag vX.Y.Z
 ├── requirements.txt               # Dépendances runtime
 ├── requirements-build.txt         # Dépendances de build (PyInstaller)
 └── README.md
