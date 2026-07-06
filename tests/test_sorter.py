@@ -1,8 +1,9 @@
 """Tests pour core/sorter.py"""
 import os
+from datetime import datetime
 from PIL import Image
 
-from core.sorter import sort_by_date, _unique_destination
+from core.sorter import sort_by_date, _unique_destination, build_date_path
 
 
 def _make_fake_photo(path):
@@ -89,9 +90,7 @@ def test_sort_by_date_idempotent_ne_duplique_pas(tmp_path):
     exif[36867] = "2019:01:01 12:00:00"
     img.save(photo, exif=exif.tobytes())
 
-    # Trier le dossier dest sur lui-même (source == dest)
-    # Doit être refusé ; on teste donc la source = sous-dossier contenant la photo
-    # et dest = dossier parent : comportement idempotent
+    # Trier le dossier dest sur lui-même (source == dest) : comportement idempotent
     log_messages = []
     n_ok, n_err = sort_by_date(str(dest), str(dest), move_files=False,
                                 log_callback=log_messages.append)
@@ -123,3 +122,88 @@ def test_sort_by_date_gere_les_collisions_de_noms(tmp_path):
     # Les deux fichiers doivent coexister (celui déjà présent + le nouveau renommé)
     files_in_dest = list(year_month_dir.glob("photo*"))
     assert len(files_in_dest) == 2
+
+
+def test_build_date_path_couvre_les_sept_granularites():
+    """Vérifie le chemin relatif généré pour chacune des 7 combinaisons de granularité."""
+    date_taken = datetime(2026, 1, 12, 10, 30)  # un lundi (cf. exemple du cahier des charges)
+
+    assert build_date_path(date_taken, "annee") == "2026"
+    assert build_date_path(date_taken, "mois") == "01 - Janvier"
+    assert build_date_path(date_taken, "jour") == "12 Lundi"
+    assert build_date_path(date_taken, "annee_mois") == os.path.join("2026", "01 - Janvier")
+    assert build_date_path(date_taken, "annee_jour") == os.path.join("2026", "12 Lundi")
+    assert build_date_path(date_taken, "mois_jour") == os.path.join("01 - Janvier", "12 Lundi")
+    assert build_date_path(date_taken, "annee_mois_jour") == os.path.join(
+        "2026", "01 - Janvier", "12 Lundi")
+
+
+def test_sort_by_date_source_egale_destination_granularite_annee_mois(tmp_path):
+    """source == destination : les fichiers sont classés dans des sous-dossiers du même
+    dossier, sans perte ni duplication (granularité année/mois)."""
+    folder = tmp_path / "bibliotheque"
+    folder.mkdir()
+
+    photo1 = folder / "vacances.jpg"
+    photo2 = folder / "anniversaire.jpg"
+    _make_fake_photo(photo1)
+    _make_fake_photo(photo2)
+
+    n_ok, n_err = sort_by_date(str(folder), str(folder), move_files=True,
+                                granularity="annee_mois")
+
+    assert n_ok == 2
+    assert n_err == 0
+    assert not photo1.exists()
+    assert not photo2.exists()
+    assert len(list(folder.rglob("vacances.jpg"))) == 1
+    assert len(list(folder.rglob("anniversaire.jpg"))) == 1
+
+
+def test_sort_by_date_source_egale_destination_granularite_annee_seule(tmp_path):
+    """source == destination avec la granularité 'année seule' (un seul niveau de
+    sous-dossier) : même garantie de non-perte/non-duplication."""
+    folder = tmp_path / "bibliotheque"
+    folder.mkdir()
+
+    photo = folder / "photo.jpg"
+    _make_fake_photo(photo)
+
+    n_ok, n_err = sort_by_date(str(folder), str(folder), move_files=True,
+                                granularity="annee")
+
+    assert n_ok == 1
+    assert n_err == 0
+    assert not photo.exists()
+    matches = list(folder.rglob("photo.jpg"))
+    assert len(matches) == 1
+    assert matches[0].parent != folder  # déplacé dans un sous-dossier "AAAA/", pas resté à la racine
+
+
+def test_sort_by_date_change_de_granularite_redeclenche_le_tri(tmp_path):
+    """Un fichier bien classé en 'année seule' n'est pas retraité tant que la granularité
+    ne change pas ; il doit être reclassé si on passe à 'année/mois'."""
+    dest = tmp_path / "dest"
+
+    target_dir = dest / "2019"
+    target_dir.mkdir(parents=True)
+    photo = target_dir / "photo.jpg"
+    img = Image.new("RGB", (5, 5))
+    exif = img.getexif()
+    exif[36867] = "2019:03:10 09:00:00"
+    img.save(photo, exif=exif.tobytes())
+
+    # Avec la granularité "annee", le fichier est déjà bien classé : SKIP, pas de déplacement.
+    log_messages = []
+    sort_by_date(str(dest), str(dest), move_files=True, granularity="annee",
+                 log_callback=log_messages.append)
+    assert any("SKIP" in m for m in log_messages)
+    assert photo.exists()
+
+    # Avec la granularité "annee_mois", il doit maintenant être déplacé dans 2019/03 - Mars/.
+    log_messages.clear()
+    sort_by_date(str(dest), str(dest), move_files=True, granularity="annee_mois",
+                 log_callback=log_messages.append)
+    assert any("OK" in m for m in log_messages)
+    assert not photo.exists()
+    assert (dest / "2019" / "03 - Mars" / "photo.jpg").exists()
