@@ -48,8 +48,16 @@ Le processus se fait en 2 étapes :
 2. **Archiver** — déplace tous les doublons (sauf le premier de chaque groupe, conservé
    à sa place d'origine) vers un dossier d'archive dédié.
 
-## Formats d'image supportés
-JPEG, PNG, TIFF, BMP, GIF, WebP, HEIC/HEIF (photos iPhone).
+## Formats supportés
+- **Photos** : JPEG, PNG, TIFF, BMP, GIF, WebP, HEIC/HEIF (photos iPhone)
+- **Vidéos** : MP4, MOV, AVI, MKV, M4V, 3GP, WMV — date extraite des métadonnées du
+  conteneur (via `hachoir`), avec repli sur la date de modification du fichier si absente.
+
+## Lancer les tests
+
+```bash
+pytest tests/ -v
+```
 
 ## Créer un exécutable autonome (optionnel)
 
