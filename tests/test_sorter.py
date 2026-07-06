@@ -1,5 +1,6 @@
 """Tests pour core/sorter.py"""
 import os
+import struct
 import time
 from datetime import datetime
 from PIL import Image
@@ -9,6 +10,32 @@ from core.sorter import sort_by_date, _unique_destination, build_date_path
 
 def _make_fake_photo(path):
     Image.new("RGB", (5, 5)).save(path)
+
+
+_MP4_EPOCH = datetime(1904, 1, 1)
+
+
+def _make_fake_video(path, creation_date: datetime):
+    """Écrit un fichier .mp4 minimal (ftyp + moov/mvhd) avec une date de création
+    de conteneur donnée, pour vérifier que le tri se base dessus."""
+    def box(box_type: bytes, payload: bytes) -> bytes:
+        return struct.pack(">I4s", 8 + len(payload), box_type) + payload
+
+    ftyp = box(b"ftyp", b"isom" + struct.pack(">I", 0) + b"isomiso2mp41")
+    creation_time = int((creation_date - _MP4_EPOCH).total_seconds())
+    mvhd_body = struct.pack(">B3s", 0, b"\x00\x00\x00")
+    mvhd_body += struct.pack(">III", creation_time, creation_time, 1000)
+    mvhd_body += struct.pack(">I", 5000)
+    mvhd_body += struct.pack(">I", 0x00010000)
+    mvhd_body += struct.pack(">H", 0x0100)
+    mvhd_body += b"\x00\x00" + b"\x00" * 8
+    mvhd_body += struct.pack(">9i", 0x00010000, 0, 0, 0, 0x00010000, 0, 0, 0, 0x40000000)
+    mvhd_body += b"\x00" * 24
+    mvhd_body += struct.pack(">I", 2)
+    moov = box(b"moov", box(b"mvhd", mvhd_body))
+
+    with open(path, "wb") as f:
+        f.write(ftyp + moov)
 
 
 def test_unique_destination_ajoute_un_suffixe_si_collision(tmp_path):
@@ -237,3 +264,26 @@ def test_sort_by_date_utilise_la_date_exif_pas_la_date_de_fichier(tmp_path):
     # Aucune autre copie ailleurs (ex: dans un dossier basé sur la date du jour) : la seule
     # copie existante est bien celle placée d'après la date EXIF.
     assert list(dest.rglob("photo.jpg")) == [expected_path]
+
+
+def test_sort_by_date_utilise_la_date_video_pas_la_date_de_fichier(tmp_path):
+    """Le tri d'une vidéo doit se baser sur la date de création du conteneur
+    (métadonnées), jamais sur la date de modification du fichier."""
+    source = tmp_path / "source"
+    dest = tmp_path / "dest"
+    source.mkdir()
+
+    video = source / "clip.mp4"
+    _make_fake_video(video, creation_date=datetime(2018, 3, 22, 10, 15, 0))
+
+    # Date de modification du fichier volontairement différente (aujourd'hui).
+    now = time.time()
+    os.utime(video, (now, now))
+
+    n_ok, n_err = sort_by_date(str(source), str(dest), move_files=False)
+
+    assert n_ok == 1
+    assert n_err == 0
+    expected_path = dest / "2018" / "03 - Mars" / "clip.mp4"
+    assert expected_path.exists()
+    assert list(dest.rglob("clip.mp4")) == [expected_path]
