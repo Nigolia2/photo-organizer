@@ -19,13 +19,18 @@ $IconPath = "build\assets\icon.ico"
 
 Write-Host "=== Build PyInstaller (--onefile) ===" -ForegroundColor Cyan
 
+# --add-data attend un chemin absolu pour la source : PyInstaller resout un chemin
+# relatif par rapport a --specpath (ici "build\"), pas par rapport au dossier courant.
+$ThemeJsonPath = Join-Path (Get-Location).Path "core\theme.json"
+
 $pyinstallerArgs = @(
     "--onefile",
     "--windowed",
     "--name", $AppName,
     "--distpath", $DistDir,
     "--workpath", $WorkDir,
-    "--specpath", $SpecDir
+    "--specpath", $SpecDir,
+    "--add-data", "$ThemeJsonPath;core"
 )
 
 # Icone optionnelle : placer un .ico 256x256 dans build\assets\icon.ico

@@ -23,6 +23,8 @@ PYINST_DIR="${DIST_DIR}/${APP_NAME}"   # répertoire --onedir de PyInstaller
 DEB_TREE="${DIST_DIR}/${DEB_STEM}"     # arborescence .deb temporaire
 
 echo "=== Build PyInstaller (--onedir) ==="
+# --add-data attend un chemin absolu pour la source : PyInstaller résout un chemin
+# relatif par rapport à --specpath (ici "build/"), pas par rapport au dossier courant.
 pyinstaller \
     --onedir \
     --noconsole \
@@ -30,6 +32,7 @@ pyinstaller \
     --distpath "${DIST_DIR}" \
     --workpath "build/pyinstaller_work" \
     --specpath "build" \
+    --add-data "$(pwd)/core/theme.json:core" \
     main.py
 
 echo ""

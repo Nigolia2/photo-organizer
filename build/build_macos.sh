@@ -19,6 +19,8 @@ DIST_DIR="dist"
 DMG_PATH="${DIST_DIR}/${APP_NAME}.dmg"
 
 echo "=== Build PyInstaller (.app bundle) ==="
+# --add-data attend un chemin absolu pour la source : PyInstaller résout un chemin
+# relatif par rapport à --specpath (ici "build/"), pas par rapport au dossier courant.
 pyinstaller \
     --onefile \
     --windowed \
@@ -26,6 +28,7 @@ pyinstaller \
     --distpath "${DIST_DIR}" \
     --workpath "build/pyinstaller_work" \
     --specpath "build" \
+    --add-data "$(pwd)/core/theme.json:core" \
     main.py
 
 APP_BUNDLE="${DIST_DIR}/${APP_NAME}.app"
