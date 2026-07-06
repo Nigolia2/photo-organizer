@@ -1,5 +1,6 @@
 """Tests pour core/sorter.py"""
 import os
+import time
 from datetime import datetime
 from PIL import Image
 
@@ -207,3 +208,32 @@ def test_sort_by_date_change_de_granularite_redeclenche_le_tri(tmp_path):
     assert any("OK" in m for m in log_messages)
     assert not photo.exists()
     assert (dest / "2019" / "03 - Mars" / "photo.jpg").exists()
+
+
+def test_sort_by_date_utilise_la_date_exif_pas_la_date_de_fichier(tmp_path):
+    """Le tri doit se baser sur la date EXIF (prise de vue), jamais sur la date de
+    modification du fichier, même quand les deux diffèrent nettement."""
+    source = tmp_path / "source"
+    dest = tmp_path / "dest"
+    source.mkdir()
+
+    photo = source / "photo.jpg"
+    img = Image.new("RGB", (5, 5))
+    exif = img.getexif()
+    exif[36867] = "2024:03:15 10:00:00"  # DateTimeOriginal : 15 mars 2024
+    img.save(photo, exif=exif.tobytes())
+
+    # Date de modification du fichier volontairement différente de l'EXIF (aujourd'hui),
+    # pour s'assurer que le tri ignore mtime tant que la date EXIF est présente.
+    now = time.time()
+    os.utime(photo, (now, now))
+
+    n_ok, n_err = sort_by_date(str(source), str(dest), move_files=False)
+
+    assert n_ok == 1
+    assert n_err == 0
+    expected_path = dest / "2024" / "03 - Mars" / "photo.jpg"
+    assert expected_path.exists()
+    # Aucune autre copie ailleurs (ex: dans un dossier basé sur la date du jour) : la seule
+    # copie existante est bien celle placée d'après la date EXIF.
+    assert list(dest.rglob("photo.jpg")) == [expected_path]
