@@ -1,5 +1,13 @@
 # CLAUDE.md — Contexte du projet Photo Organizer
 
+## Méthode de travail (développement)
+
+> **En bref**
+> - Ce projet suit la méthode commune décrite dans **`~/DEVELOPPEMENT.md`** : étapes, rôles, questions à poser, bonnes pratiques de code, Git, revue, tests, corrections de bugs, mises à jour, mise en production. **La lire avant de commencer un nouveau lot de travail.**
+> - **Étape actuelle : à renseigner par la session de l'appli (voir `~/DEVELOPPEMENT.md`, section 2).**
+> - **Points d'arrêt** : faire valider Nicolas à la fin du cadrage, des spécifications et du plan, à la recette, et avant toute mise en production, exposition sur Internet ou action destructive. Nicolas n'est pas développeur : expliquer en mots simples.
+> - Mettre à jour la ligne « Étape actuelle » à chaque changement d'étape.
+
 ## Objectif
 Application de bureau pour gérer une bibliothèque de photos ET vidéos numériques personnelle
 (quelques milliers de fichiers — pas besoin d'optimiser pour du très grand volume, mais garder
