@@ -7,6 +7,7 @@
 > - **Étape actuelle : à renseigner par la session de l'appli (voir `~/DEVELOPPEMENT.md`, section 2).**
 > - **Points d'arrêt** : faire valider Nicolas à la fin du cadrage, des spécifications et du plan, à la recette, et avant toute mise en production, exposition sur Internet ou action destructive. Nicolas n'est pas développeur : expliquer en mots simples.
 > - Mettre à jour la ligne « Étape actuelle » à chaque changement d'étape.
+> - **Qui contacter** : méthode, architecture, relecture de code → session **`dev`** ; mise en ligne, DNS, Caddy, sauvegarde, surveillance, `sudo` → session **`maintenance`**.
 
 ## Objectif
 Application de bureau pour gérer une bibliothèque de photos ET vidéos numériques personnelle
